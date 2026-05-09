@@ -21,12 +21,12 @@ int main(void) {
     uart_separator();
     uart_nl();
 
-    for (int i = 0; i < N_ELEMS; i++) { vec_a[i] = i+1; vec_b[i] = i+1; }
+    for (int i = 0; i < N_ELEMS; i++) { vec_a[i] = (i+1)*100; vec_b[i] = (i+1)*100; }
 
     // Correctitud
     int32_t expected = sk_dot(vec_a, vec_b, N_ELEMS);
     int32_t got_v    = vk_dot(vec_a, vec_b, N_ELEMS);
-    int correct = (expected == got_v) && (expected == 11440);
+    int correct = (expected == got_v) && (expected == 114400000);
     uart_print_dec("  Resultado escalar:   ", (uint32_t)expected);
     uart_print_dec("  Resultado vectorial: ", (uint32_t)got_v);
     uart_puts("  Correcto: "); uart_puts(correct ? "SI" : "NO"); uart_nl();
