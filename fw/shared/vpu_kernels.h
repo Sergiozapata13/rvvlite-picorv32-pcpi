@@ -121,25 +121,22 @@ static inline int32_t vk_dot(volatile int32_t *a, volatile int32_t *b, int n) {
 // ─── vse32 throughput: escribir N veces el mismo valor ───────────────────────
 //  Util para medir el costo puro de vse32 sin influencia de loads
 static inline void vk_store_constant(volatile int32_t *out, int32_t value, int n) {
-    // Llenar v1 con el valor escalar
-    asm volatile (
-        "mv a0, %0\n"
-        ASM_VMV_V_X_V1_A0
-        : : "r"(value) : "a0", "memory"
-    );
-
+    // vmv.v.x DENTRO del loop, despues de vsetvli (HT-OE4b)
+    // Si se hace fuera, csr_vl puede ser 0 post-reset y no llena ningun elemento
     int rem = n;
     volatile int32_t *po = out;
     while (rem > 0) {
         int vl;
         asm volatile (
-            "mv a1, %1\n"
-            ASM_VSETVLI_A0_A1_E32M1
-            "mv %0, a0\n"
-            "mv a0, %2\n"
-            ASM_VSE32_V1_A0
+            "mv a1, %2\n"
+            ASM_VSETVLI_A0_A1_E32M1   // vl = min(rem, VLMAX)
+            "mv %0, a0\n"             // guardar vl
+            "mv a0, %3\n"             // a0 = value
+            ASM_VMV_V_X_V1_A0          // v1[0..vl-1] = value
+            "mv a0, %1\n"             // a0 = base ptr
+            ASM_VSE32_V1_A0            // store v1 a memoria
             : "=r"(vl)
-            : "r"(rem), "r"((uint32_t)po)
+            : "r"((uint32_t)po), "r"(rem), "r"(value)
             : "a0", "a1", "memory"
         );
         rem -= vl;
