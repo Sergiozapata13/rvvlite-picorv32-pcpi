@@ -53,6 +53,7 @@
 // ─── VALU — operaciones vd, vs2, vs1 (formato OPIVV) ─────────────────────────
 // Plantilla: funct6 + 1 + vs2 + vs1 + 000 + vd + 1010111
 // vadd.vv v1, v2, v3  = 0x022180D7   (funct6=000000)
+// vadd.vv v1, v1, v3  = 0x021180D7   (acumulador v1 += v3)
 // vsub.vv v1, v2, v3  = 0x0A2180D7   (funct6=000010)
 // vand.vv v1, v2, v3  = 0x262180D7   (funct6=001001)
 // vor.vv  v1, v2, v3  = 0x2A2180D7   (funct6=001010)
@@ -60,6 +61,7 @@
 // vsll.vv v1, v2, v3  = 0x962180D7   (funct6=100101)
 // vsrl.vv v1, v2, v3  = 0xA22180D7   (funct6=101000)
 #define ASM_VADD_VV_V1_V2_V3  ".word 0x022180D7\n"
+#define ASM_VADD_VV_V1_V1_V3  ".word 0x021180D7\n" 
 #define ASM_VSUB_VV_V1_V2_V3  ".word 0x0A2180D7\n"
 #define ASM_VAND_VV_V1_V2_V3  ".word 0x262180D7\n"
 #define ASM_VOR_VV_V1_V2_V3   ".word 0x2A2180D7\n"

@@ -216,4 +216,63 @@ void vk_fir(volatile int32_t *x, volatile int32_t *h,
     }
 }
 
+// Agregar al final de vpu_kernels.h, antes del #endif
+
+// =============================================================================
+//  AXPY: z[i] = alpha * x[i] + y[i]
+//  Kernel BLAS Level-1: combina vmul.vv + vadd.vv en un pass
+// =============================================================================
+
+// Escalar — noinline para forzar llamada real a __mulsi3
+static __attribute__((noinline))
+void sk_axpy(volatile int32_t *x, volatile int32_t *y,
+             volatile int32_t *z, int32_t alpha, int n) {
+    for (int i = 0; i < n; i++)
+        z[i] = alpha * x[i] + y[i];
+}
+
+// Vectorial — vmv.v.x (broadcast) + vle32 (x2) + vmul.vv + vadd.vv + vse32
+// Encodings derivados:
+//   0x5E055157 = vmv.v.x v2, a0   (broadcast alpha a v2)
+//   0x02056187 = vle32.v v3, (a0) (carga v3 con base a0)
+//   0x9621A0D7 = vmul.vv v1, v2, v3 (v1 = alpha * x)
+//   0x021180D7 = vadd.vv v1, v1, v3 (v1 += y)
+//   0x020560A7 = vse32.v v1, (a0)  (almacena resultado)
+static __attribute__((noinline))
+void vk_axpy(volatile int32_t *x, volatile int32_t *y,
+             volatile int32_t *z, int32_t alpha, int n) {
+    int rem = n;
+    volatile int32_t *px = x;
+    volatile int32_t *py = y;
+    volatile int32_t *pz = z;
+
+    while (rem > 0) {
+        int vl;
+        asm volatile (
+            "mv a1, %1\n"
+            ASM_VSETVLI_A0_A1_E32M1     // a0 = vl = min(rem, VLMAX)
+            "mv %0, a0\n"                // guardar vl
+            "mv a0, %2\n"                // a0 = alpha
+            ASM_VMV_V_X_V2_A0            // v2 = [alpha, alpha, alpha, alpha]
+            "mv a1, %3\n"                // a1 = px
+            ASM_VLE32_V3_A1              // v3 = x[i..i+vl-1]
+            ASM_VMUL_VV_V1_V2_V3         // v1 = alpha * x
+            "mv a1, %4\n"                // a1 = py
+            ASM_VLE32_V3_A1              // v3 = y[i..i+vl-1]  (reusa v3)
+            //".word 0x021180D7\n"         // vadd.vv v1, v1, v3 — v1 = alpha*x + y
+            ASM_VADD_VV_V1_V1_V3         // v1 += y (acumulador)
+            "mv a0, %5\n"                // a0 = pz
+            ASM_VSE32_V1_A0              // store v1
+            : "=r"(vl)
+            : "r"(rem), "r"((int32_t)alpha),
+              "r"((uint32_t)px), "r"((uint32_t)py), "r"((uint32_t)pz)
+            : "a0", "a1", "memory"
+        );
+        rem -= vl;
+        px  += vl;
+        py  += vl;
+        pz  += vl;
+    }
+}
+
 #endif // VPU_KERNELS_H
