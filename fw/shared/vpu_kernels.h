@@ -275,4 +275,97 @@ void vk_axpy(volatile int32_t *x, volatile int32_t *y,
     }
 }
 
+// AXPY extendido escalar: z[i] = a*x[i] + b*y[i] + c*w[i] + d*v[i]
+// 4 llamadas a __mulsi3 por elemento — maximiza el costo escalar
+static __attribute__((noinline))
+void sk_axpy_ext(volatile int32_t *x, volatile int32_t *y,
+                 volatile int32_t *w, volatile int32_t *v,
+                 volatile int32_t *z,
+                 int32_t a, int32_t b, int32_t c, int32_t d, int n) {
+    for (int i = 0; i < n; i++)
+        z[i] = a*x[i] + b*y[i] + c*w[i] + d*v[i];
+}
+
+// AXPY extendido vectorial: 17 instrucciones PCPI por iteracion de 4 elementos
+//   4x vmv.v.x + 4x vle32.v + 4x vmul.vv + 3x vadd.vv + 1x vse32.v
+//
+// Nuevos encodings:
+//   0x9621A157 = vmul.vv v2, v2, v3  (acumula termino en v2)
+//   0x021100D7 = vadd.vv v1, v1, v2  (suma v2 al acumulador v1)
+static __attribute__((noinline))
+void vk_axpy_ext(volatile int32_t *x, volatile int32_t *y,
+                 volatile int32_t *w, volatile int32_t *v,
+                 volatile int32_t *z,
+                 int32_t a, int32_t b, int32_t c, int32_t d, int n) {
+    int rem = n;
+    volatile int32_t *px = x;
+    volatile int32_t *py = y;
+    volatile int32_t *pw = w;
+    volatile int32_t *pv = v;
+    volatile int32_t *pz = z;
+
+    while (rem > 0) {
+        int vl;
+        asm volatile (
+            // Configurar vl
+            "mv a1, %1\n"
+            ASM_VSETVLI_A0_A1_E32M1      // a0 = vl
+            "mv %0, a0\n"                 // guardar vl
+
+            // Termino 1: v1 = a * x
+            "mv a0, %2\n"                 // a0 = alpha_a
+            ASM_VMV_V_X_V2_A0             // v2 = [a,a,a,a]
+            "mv a1, %6\n"                 // a1 = px
+            ASM_VLE32_V3_A1               // v3 = x[i..i+vl-1]
+            ASM_VMUL_VV_V1_V2_V3          // v1 = a * x
+
+            // Termino 2: v2 = b * y  →  v1 += v2
+            "mv a0, %3\n"                 // a0 = alpha_b
+            ASM_VMV_V_X_V2_A0             // v2 = [b,b,b,b]
+            "mv a1, %7\n"                 // a1 = py
+            ASM_VLE32_V3_A1               // v3 = y[i..i+vl-1]
+            ASM_VMUL_VV_V2_V2_V3
+            ASM_VADD_VV_V1_V1_V2
+
+            // Termino 3: v2 = c * w  →  v1 += v2
+            "mv a0, %4\n"                 // a0 = alpha_c
+            ASM_VMV_V_X_V2_A0             // v2 = [c,c,c,c]
+            "mv a1, %8\n"                 // a1 = pw
+            ASM_VLE32_V3_A1               // v3 = w[i..i+vl-1]
+            ASM_VMUL_VV_V2_V2_V3
+            ASM_VADD_VV_V1_V1_V2
+
+            // Termino 4: v2 = d * v  →  v1 += v2
+            "mv a0, %5\n"                 // a0 = alpha_d
+            ASM_VMV_V_X_V2_A0             // v2 = [d,d,d,d]
+            "mv a1, %9\n"                 // a1 = pv
+            ASM_VLE32_V3_A1               // v3 = v[i..i+vl-1]
+            ASM_VMUL_VV_V2_V2_V3
+            ASM_VADD_VV_V1_V1_V2
+
+            // Almacenar resultado
+            "mv a0, %10\n"                // a0 = pz
+            ASM_VSE32_V1_A0               // store v1
+
+            // vmul.vv v2, v2, v3 = 0x9621A157  (vd=v2, derivado de vmul v1,v2,v3)
+            // #define ASM_VMUL_VV_V2_V2_V3   ".word 0x9621A157\n"
+            // vadd.vv v1, v1, v2 = 0x021100D7  (vs1=v2, derivado de vadd v1,v1,v3)
+            // #define ASM_VADD_VV_V1_V1_V2   ".word 0x021100D7\n"
+
+            : "=r"(vl)
+            : "r"(rem),
+              "r"((int32_t)a), "r"((int32_t)b),
+              "r"((int32_t)c), "r"((int32_t)d),
+              "r"((uint32_t)px), "r"((uint32_t)py),
+              "r"((uint32_t)pw), "r"((uint32_t)pv),
+              "r"((uint32_t)pz)
+            : "a0", "a1", "memory"
+        );
+        rem -= vl;
+        px  += vl;  py  += vl;
+        pw  += vl;  pv  += vl;
+        pz  += vl;
+    }
+}
+
 #endif // VPU_KERNELS_H

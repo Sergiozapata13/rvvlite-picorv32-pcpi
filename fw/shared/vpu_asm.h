@@ -60,8 +60,9 @@
 // vxor.vv v1, v2, v3  = 0x2E2180D7   (funct6=001011)
 // vsll.vv v1, v2, v3  = 0x962180D7   (funct6=100101)
 // vsrl.vv v1, v2, v3  = 0xA22180D7   (funct6=101000)
-#define ASM_VADD_VV_V1_V2_V3  ".word 0x022180D7\n"
+#define ASM_VADD_VV_V1_V1_V2   ".word 0x021100D7\n"
 #define ASM_VADD_VV_V1_V1_V3  ".word 0x021180D7\n" 
+#define ASM_VADD_VV_V1_V2_V3  ".word 0x022180D7\n"
 #define ASM_VSUB_VV_V1_V2_V3  ".word 0x0A2180D7\n"
 #define ASM_VAND_VV_V1_V2_V3  ".word 0x262180D7\n"
 #define ASM_VOR_VV_V1_V2_V3   ".word 0x2A2180D7\n"
@@ -69,10 +70,12 @@
 #define ASM_VSLL_VV_V1_V2_V3  ".word 0x962180D7\n"
 #define ASM_VSRL_VV_V1_V2_V3  ".word 0xA22180D7\n"
 
+
 // ─── VALU — multiplicacion y reduccion (formato OPMVV, funct3=010) ───────────
 // vmul.vv v1, v2, v3      = 0x9621A0D7
 // vredsum.vs v4, v1, v4   = 0x02122257
 #define ASM_VMUL_VV_V1_V2_V3   ".word 0x9621A0D7\n"
+#define ASM_VMUL_VV_V2_V2_V3   ".word 0x9621A157\n"
 #define ASM_VREDSUM_VS_V4_V1   ".word 0x02122257\n"
 
 // ─── Helpers de patrones comunes ─────────────────────────────────────────────
