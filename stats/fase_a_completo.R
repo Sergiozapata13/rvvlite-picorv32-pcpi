@@ -126,13 +126,18 @@ png("fig4_qqplot_sqrt.png", width=600, height=500, res=100)
 qqnorm(residuals(mod_sqrt), main="QQ-plot: residuos modelo sqrt(cpe)")
 qqline(residuals(mod_sqrt), col="red", lwd=2); dev.off()
 
+# En fase_a_completo.R, mejorar etiquetas de fig5:
 g5 <- ggplot(dl, aes(x=impl, y=log(cpe), fill=impl)) +
   geom_boxplot(alpha=0.7) +
   facet_wrap(~categoria, scales="free_y") +
   scale_fill_manual(values=c("Escalar"="#E74C3C","Vectorial"="#27AE60")) +
   labs(title="log(ciclos/elemento) por implementacion y categoria",
-       x=NULL, y="log(cpe)", fill=NULL) +
-  theme_minimal(base_size=11) + theme(legend.position="bottom")
+       subtitle="Escalar (rojo) vs Vectorial (verde) — menor es mejor",  # agregar
+       x="Implementacion", y="log(ciclos / elemento)", fill=NULL) +       # mejorar eje x
+  theme_minimal(base_size=12) +
+  theme(legend.position="bottom",
+        strip.text=element_text(face="bold"))  # categoria en negrita
+
 ggsave("fig5_boxplot_impl_categoria.png", g5, width=10, height=7, dpi=150)
 
 cat("Graficos guardados: fig1 fig2 fig3 fig4 fig5\n")
