@@ -33,7 +33,7 @@ etapa-b:
 	@echo ""
 	@echo "=== Etapa B: pcpi_example ==="
 	$(VERILATOR) $(VFLAGS) \
-		pcpi_example.v tb_pcpi_example.cpp \
+		../rtl/vpu/pcpi_example.v tb_pcpi_example.cpp \
 		-o sim_pcpi_example
 	./obj_dir/sim_pcpi_example
 
@@ -42,7 +42,7 @@ etapa-c:
 	@echo ""
 	@echo "=== Etapa C: pcpi_multicycle ==="
 	$(VERILATOR) $(VFLAGS) \
-		pcpi_multicycle.v tb_pcpi_multicycle.cpp \
+		../rtl/vpu/pcpi_multicycle.v tb_pcpi_multicycle.cpp \
 		-o sim_pcpi_multicycle
 	./obj_dir/sim_pcpi_multicycle
 
@@ -51,7 +51,7 @@ oe1:
 	@echo ""
 	@echo "=== OE1: vpu_decode (vsetvli/vsetvl) ==="
 	$(VERILATOR) $(VFLAGS) \
-		vpu_decode.v tb_vpu_decode.cpp \
+		../rtl/vpu/vpu_decode.v tb_vpu_decode.cpp \
 		-o sim_vpu_decode
 	./obj_dir/sim_vpu_decode
 
@@ -60,7 +60,7 @@ oe2:
 	@echo ""
 	@echo "=== OE2: vpu_alu (VALU vectorial + banco 8x128b) ==="
 	$(VERILATOR) $(VFLAGS) \
-		vpu_alu.v tb_vpu_alu.cpp \
+		../rtl/vpu/vpu_alu.v tb_vpu_alu.cpp \
 		-o sim_vpu_alu
 	./obj_dir/sim_vpu_alu
 
@@ -69,7 +69,7 @@ oe3:
 	@echo ""
 	@echo "=== OE3: vpu_lsu (vle32/vse32) ==="
 	$(VERILATOR) $(VFLAGS) \
-		vpu_lsu.v tb_vpu_lsu.cpp \
+		../rtl/vpu/vpu_lsu.v tb_vpu_lsu.cpp \
 		-o sim_vpu_lsu
 	./obj_dir/sim_vpu_lsu
 
