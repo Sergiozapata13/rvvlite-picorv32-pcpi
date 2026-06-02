@@ -1,0 +1,72 @@
+=== Dataset Fase B ===
+   kernel      impl   N ciclos       cpe
+1    vadd   Escalar  32   1285  40.15625
+2    vadd   Escalar  64   2565  40.07812
+3    vadd   Escalar 128   5125  40.03906
+4    vadd   Escalar 256  10245  40.01953
+5    vadd Vectorial  32    985  30.78125
+6    vadd Vectorial  64   1945  30.39062
+7    vadd Vectorial 128   3865  30.19531
+8    vadd Vectorial 256   7705  30.09766
+9    AXPY   Escalar  32   2190  68.43750
+10   AXPY   Escalar  64   4334  67.71875
+11   AXPY   Escalar 128   8622  67.35938
+12   AXPY   Escalar 256  17198  67.17969
+13   AXPY Vectorial  32   1148  35.87500
+14   AXPY Vectorial  64   2252  35.18750
+15   AXPY Vectorial 128   4460  34.84375
+16   AXPY Vectorial 256   8876  34.67188
+17    dot   Escalar  32   8411 262.84375
+18    dot   Escalar  64  18424 287.87500
+19    dot   Escalar 128  40272 314.62500
+20    dot   Escalar 256  87615 342.24609
+21    dot Vectorial  32    815  25.46875
+22    dot Vectorial  64   1591  24.85938
+23    dot Vectorial 128   3143  24.55469
+24    dot Vectorial 256   6247  24.40234
+
+
+=== MODELOS LINEALES: ciclos ~ N por kernel e implementacion ===
+Kernel       Impl         beta(c/e)    alpha       R2     RMSE
+------------------------------------------------------------ 
+vadd         Escalar         40.00      5.0   1.0000     0.00
+vadd         Vectorial       30.00     25.0   1.0000     0.00
+AXPY         Escalar         67.00     46.0   1.0000     0.00
+AXPY         Vectorial       34.50     44.0   1.0000     0.00
+dot          Escalar        355.50  -3979.4   0.9992   875.13
+dot          Vectorial       24.25     39.0   1.0000     0.00
+
+
+=== SPEEDUP vs N por kernel ===
+Kernel       N=32     N=64    N=128    N=256
+-------------------------------------------- 
+vadd         1.30     1.32     1.33     1.33
+AXPY         1.91     1.92     1.93     1.94
+dot         10.32    11.58    12.81    14.03
+
+
+=== DELTA DE CICLOS (escalar - vectorial) ===
+Kernel       N=32     N=64    N=128    N=256
+-------------------------------------------- 
+vadd          300      620     1260     2540
+AXPY         1042     2082     4162     8322
+dot          7596    16833    37129    81368
+
+
+=== INTERACCION impl:N — cpe por kernel y N ===
+Kernel     Impl           N=32   N=64  N=128  N=256
+---------------------------------------------------- 
+vadd       Escalar        40.2   40.1   40.0   40.0
+vadd       Vectorial      30.8   30.4   30.2   30.1
+AXPY       Escalar        68.4   67.7   67.4   67.2
+AXPY       Vectorial      35.9   35.2   34.8   34.7
+dot        Escalar       262.8  287.9  314.6  342.2
+dot        Vectorial      25.5   24.9   24.6   24.4
+
+Nota: dot escalar muestra cpe creciente con N
+(valores mayores incrementan costo de __mulsi3)
+dot vectorial mantiene cpe constante (DSP48E1 tiempo fijo)
+
+
+Graficos: fig6_ciclos_vs_N.png, fig7_speedup_vs_N.png, fig8_cpe_vs_N.png
+=== Fase B modelo completo ===
