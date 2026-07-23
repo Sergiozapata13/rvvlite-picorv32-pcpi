@@ -1,24 +1,29 @@
 # RVV-lite sobre PicoRV32 via PCPI — FPGA Artix-7
 
-**Trabajo Final de Graduacion (TFG) — IE-0499**
-Escuela de Ingenieria Electronica — Instituto Tecnologico de Costa Rica
+**Trabajo Final de Graduacion (TFG) — EL-5617**
+Licenciatura en Ingenieria Electronica — Escuela de Ingenieria Electronica
+Instituto Tecnologico de Costa Rica, Sede San Carlos — I Semestre 2026
 
 Implementacion de un subconjunto funcional de la extension vectorial RISC-V (RVV v1.0)
 como coprocesador PCPI del nucleo PicoRV32, sintetizado en la FPGA Nexys A7-100T (Artix-7 xc7a100tcsg324-1).
+
+**Tutor:** M.Sc. Ernesto Rivera Alvarado
+**Lector:** M.Sc. Pablo Cesar Rodriguez Vargas
 
 ---
 
 ## Que hace este proyecto
 
 La extension vectorial RISC-V (RVV) permite procesar multiples datos en paralelo (SIMD).
-Este proyecto implementa **RVV-lite** — un subconjunto de 13 instrucciones — directamente
+Este proyecto implementa **RVV-lite** — un subconjunto de 15 instrucciones — directamente
 en hardware sobre una FPGA de bajo costo, conectado al procesador PicoRV32 mediante su
 interfaz de coprocesador PCPI.
 
 **Primera implementacion documentada de instrucciones RVV sobre PicoRV32 via PCPI.**
 Los coprocesadores PCPI existentes se limitan a extension M (multiplicacion), FFT y
-aceleradores de tarea especifica. Este trabajo extiende ese espacio hacia procesamiento
-vectorial generalizado.
+aceleradores de tarea especifica. La combinacion especifica PicoRV32 + PCPI + RVV v1.0 +
+Artix-7 xc7a100t no esta documentada en la literatura revisada (IEEE Xplore, ACM DL,
+Google Scholar, arXiv, repositorios latinoamericanos).
 
 ---
 
@@ -36,17 +41,22 @@ vectorial generalizado.
 |          |            +----------+-----------+  |
 |          |                       | bus LSU       |
 |   +------+------+   +----------+ |  +--------+  |
-|   |  BRAM 64KB  |<--+ arbitro  +<+  |  UART  |  |
-|   |  firmware   |   | bus mem  |    |  GPIO  |  |
+|   | RAM distr.  |<--+ arbitro  +<+  |  UART  |  |
+|   | 64 KiB      |   | bus mem  |    |  GPIO  |  |
 |   +-------------+   +----------+    +--------+  |
 +--------------------------------------------------+
 
 Mapa de memoria:
-  0x0000_0000 - 0x0000_FFFF  RAM (BRAM 64 KiB)
+  0x0000_0000 - 0x0000_FFFF  RAM distribuida 64 KiB (firmware)
   0x1000_0000                GPIO LEDs
   0x2000_0000                UART divisor baudrate
   0x2000_0004                UART TX/RX dato
 ```
+
+> **Nota:** la memoria principal se implementa como RAM distribuida (LUTRAM), no como
+> Block RAM — la sintesis confirma **Block RAM = 0** de 135 disponibles. El banco de
+> registros vectoriales (OE2) es un modulo **completamente separado**, implementado en
+> **flip-flops**, no en LUTRAM (ver seccion de sintesis).
 
 ---
 
@@ -54,26 +64,28 @@ Mapa de memoria:
 
 | Etapa | Modulo | Simulacion | Hardware | Descripcion |
 |-------|--------|-----------|---------|-------------|
-| A | SoC base | — | ✅ | PicoRV32 + BRAM + UART + GPIO |
-| B | `pcpi_example.v` | ✅ 14/14 | ✅ 6/6 | Instruccion custom 1 ciclo |
-| C | `pcpi_multicycle.v` | ✅ 14/14 | ✅ 6/6 | FSM multiciclo, pcpi_wait sostenido |
-| OE1 | `vpu_decode.v` | ✅ 21/21 | ✅ 9/9 | vsetvli/vsetvl, CSRs vl/vtype |
-| OE2 | `vpu_alu.v` | ✅ 57/57 | ✅ 23/23 | VALU 9 instrucciones + banco 8x128b |
-| OE3 | `vpu_lsu.v` | ✅ 28/28 | ✅ 20/20 | vle32/vse32, acceso a memoria |
-| OE4 | `vpu_pcpi.v` | ✅ | ✅ | Integracion + benchmarks estadisticos |
+| A | SoC base | — | OK | PicoRV32 + RAM distribuida + UART + GPIO |
+| B | `pcpi_example.v` | 14/14 | 6/6 | Instruccion custom 1 ciclo |
+| C | `pcpi_multicycle.v` | 14/14 | 6/6 | FSM multiciclo, pcpi_wait sostenido |
+| OE1 | `vpu_decode.v` | 21/21 | 9/9 | vsetvli/vsetvl, CSRs vl/vtype |
+| OE2 | `vpu_alu.v` | 57/57 | 23/23 | VALU 9 instrucciones + movimiento + banco 8x128b |
+| OE3 | `vpu_lsu.v` | 28/28 | 20/20 | vle32/vse32, acceso a memoria |
+| OE4 | `vpu_pcpi.v` | Completo | Completo | Integracion + benchmarks estadisticos (N_RUNS=10) |
+
+Total: 106 pruebas de simulacion + 52 pruebas de hardware, todas superadas.
 
 ---
 
-## Instrucciones implementadas (13 total)
+## Instrucciones implementadas (15 total)
 
-### OE1 — Configuracion vectorial
+### OE1 — Configuracion vectorial (2)
 
 | Instruccion | Operacion |
 |-------------|-----------|
 | `vsetvli rd, rs1, vtypei` | Configura vl = min(rs1, VLMAX), vtype segun vtypei |
 | `vsetvl  rd, rs1, rs2`    | Configura vl = min(rs1, VLMAX), vtype = rs2 |
 
-### OE2 — VALU vectorial (EEW=32, VLEN=128, VLMAX=4)
+### OE2 — VALU vectorial (9 aritmetico-logicas + 2 movimiento; EEW=32, VLEN=128, VLMAX=4)
 
 | Instruccion | Tipo | Operacion |
 |-------------|------|-----------|
@@ -84,30 +96,43 @@ Mapa de memoria:
 | `vxor.vv` | OPIVV | `vd[i] = vs2[i] ^ vs1[i]` |
 | `vsll.vv` | OPIVV | `vd[i] = vs2[i] << vs1[i][4:0]` |
 | `vsrl.vv` | OPIVV | `vd[i] = vs2[i] >> vs1[i][4:0]` |
-| `vmul.vv` | OPMVV | `vd[i] = vs2[i] * vs1[i]` (32b bajo, 12 DSP48E1) |
+| `vmul.vv` | OPMVV | `vd[i] = vs2[i] * vs1[i]` (32b bajo, 3 DSP48E1 por elemento) |
 | `vredsum.vs` | OPMVV | `vd[0] = vs1[0] + sum(vs2[i], i<vl)` |
+| `vmv.v.x` | Movimiento | `vd[i] = rs1` (broadcast escalar-a-vector) |
+| `vmv.x.s` | Movimiento | `rd = vs2[0]` (extraccion vector-a-escalar) |
 
-### OE3 — Acceso a memoria vectorial
+### OE3 — Acceso a memoria vectorial (2)
 
 | Instruccion | Operacion |
 |-------------|-----------|
 | `vle32.v vd, (rs1)` | Carga vl palabras de 32b desde mem[rs1+i*4] a vreg[vd] |
 | `vse32.v vs3, (rs1)` | Escribe vl palabras de 32b desde vreg[vs3] a mem[rs1+i*4] |
 
+> **14 de las 15 instrucciones son bit-exactas con la codificacion RVV v1.0.** Una
+> excepcion documentada (`vmv.v.x`, campo funct3) se etiqueto internamente como OPIVX
+> con una variacion menor; no se corrigio para no perturbar el cierre de timing ya
+> verificado (WNS = +0.094 ns).
+
 ---
 
 ## Resultados de benchmarks — Hardware real a 100 MHz
 
-Metodologia: N_RUNS=10 corridas por benchmark, media/min/max/rango.
+Metodologia: `N_RUNS=10` corridas consecutivas por benchmark, se reportan media/min/max/rango.
 **Determinismo verificado:** rango = 0 en todas las mediciones intra-corrida
-e inter-reset. El sistema bare-metal sobre FPGA es perfectamente reproducible.
+e inter-reset (via `BTNC`). El sistema bare-metal sobre FPGA es perfectamente reproducible.
 
-### Benchmarks principales (hipotesis del TFG)
+### Benchmarks principales (hipotesis del TFG: >=30% mejora)
 
-| Kernel | N | Ciclos esc. | Ciclos vec. | Mejora | Hipotesis (>=30%) |
-|--------|---|------------|------------|--------|------------------|
-| Dot product | 32 | 11,376 | 815 | **92%** | ✅ CUMPLIDA |
-| FIR (N=32 coefs) | 32 | 189,354 | 71,144 | **62%** | ✅ CUMPLIDA |
+| Kernel | N | Ciclos esc. | Ciclos vec. | Mejora | Hipotesis |
+|--------|---|------------|------------|--------|-----------|
+| Dot product | 32 | 11,376 | 815 | **92% (13.96x)** | CUMPLIDA |
+| FIR (N=32 coefs) | 32 | 189,354 | 71,144 | **62% (2.66x)** | CUMPLIDA |
+
+> **Nota sobre 13.96x vs 10.3x:** el barrido de escalabilidad (Fase B, N=32..256) mide
+> 10.3x en N=32 con un conjunto de operandos distinto al del benchmark insignia. El
+> vector es constante en ambos casos (815 ciclos); el escalar varia porque `__mulsi3`
+> (libgcc) itera segun la magnitud de los operandos, no solo segun N. Ambos numeros son
+> correctos para su respectivo conjunto de datos — documentado en detalle en el informe.
 
 ### Benchmarks AXPY — instrucciones combinadas
 
@@ -122,9 +147,9 @@ e inter-reset. El sistema bare-metal sobre FPGA es perfectamente reproducible.
 |-------------|------------|------------|--------|
 | `vadd.vv` | 4,613 | 3,865 | 16% |
 | `vsub.vv` | 4,613 | 3,865 | 16% |
-| `vand.vv` | 5,677 | 3,883 | **31%** |
-| `vor.vv`  | 5,677 | 3,883 | **31%** |
-| `vxor.vv` | 5,677 | 3,883 | **31%** |
+| `vand.vv` | 5,677 | 3,883 | 31% |
+| `vor.vv`  | 5,677 | 3,883 | 31% |
+| `vxor.vv` | 5,677 | 3,883 | 31% |
 | `vsll.vv` | 5,253 | 3,865 | 26% |
 | `vsrl.vv` | 5,253 | 3,865 | 26% |
 
@@ -135,39 +160,56 @@ e inter-reset. El sistema bare-metal sobre FPGA es perfectamente reproducible.
 | Escalar (sw store) | 4,613 | 22 MB/s |
 | Vectorial (vse32)  | 4,621 | 22 MB/s |
 
-El throughput de store esta limitado por el ancho de banda de la BRAM (1 palabra/ciclo).
+**Mejora: -0.2%** — la version vectorial es 8 ciclos mas lenta. Resultado esperado y
+reportado honestamente: el throughput de store esta limitado por el ancho de banda de
+la memoria (1 palabra/ciclo), no por computo, asi que la VPU no aporta ventaja aqui.
 
 ### Patron de mejora por tipo de operacion
 
 ```
- 0%  → vse32       (bandwidth-limited: BRAM es el cuello de botella)
-16%  → vadd/vsub   (memory-bound: mismo numero de accesos en ambas impl.)
-26%  → vsll/vsrl   (escalar requiere andi adicional para mascara de shift)
-31%  → vand/vor/vxor (escalar requiere lui para constantes de 32 bits)
-44%  → AXPY (1 mul/elem via __mulsi3 eliminada por vmul.vv)
-54%  → AXPY-ext (4 muls/elem, 17 instrucciones PCPI por 4 elementos)
-62%  → FIR  (compute-intensive, procesamiento de senales)
-92%  → Dot product (maximo observado, todas las multiplicaciones en DSP48E1)
+-0.2% -> vse32       (bandwidth-limited: la memoria es el cuello de botella)
+ 16%  -> vadd/vsub   (memory-bound: mismo numero de accesos en ambas impl.)
+ 26%  -> vsll/vsrl   (escalar requiere andi adicional para mascara de shift)
+ 31%  -> vand/vor/vxor (escalar requiere lui para constantes de 32 bits)
+ 44%  -> AXPY (1 mul/elem via __mulsi3 eliminada por vmul.vv)
+ 54%  -> AXPY-ext (4 muls/elem, 17 instrucciones PCPI por 4 elementos)
+ 62%  -> FIR  (compute-intensive, procesamiento de senales)
+ 92%  -> Dot product (maximo observado, todas las multiplicaciones en DSP48E1)
 ```
+
+**Regla general:** la mejora es proporcional a la fraccion de tiempo escalar consumida
+en multiplicacion por software (`__mulsi3`, ya que `ENABLE_MUL=0`). La VPU conviene
+cuando el cuello de botella es el computo, no el acceso a memoria.
 
 ---
 
 ## Resultados de sintesis — Vivado 2025.2
 
 **Estrategia:** `Performance_ExplorePostRoutePhysOpt`
-**Timing:** WNS = **+0.094 ns** a 100 MHz. Sin violaciones post-ruteo.
+**Timing:** WNS = **+0.094 ns** a 100 MHz (periodo 10.000 ns, camino critico 9.906 ns).
+Sin violaciones de timing post-ruteo, sin modificaciones al RTL.
+Camino critico candidato: `vmul.vv` -> DSP48E1 -> banco de registros vectoriales
+(`DSP48_X0Y5 -> DSP48_X0Y6 -> LUT -> CARRY4 -> FDRE(vreg_reg[7][93])`,
+delay 9.768 ns: 76.9% logica / 23.1% ruteo).
 
 | Recurso | SoC base | SoC + VPU | Delta VPU | Disponible |
 |---------|---------|-----------|-----------|-----------|
-| LUT as Logic | 1,831 | 8,632 | +6,801 (10.7%) | 63,400 |
-| LUT as Memory | 8,237 | 8,237 | +0 (LUTRAM) | 19,000 |
+| LUT as Logic | 1,831 | 8,640 | **+6,809 (10.74%)** | 63,400 |
+| LUT as Memory | 8,237 | 8,237 | +0 | 19,000 |
 | Flip Flops | 828 | 2,347 | +1,519 (1.2%) | 126,800 |
 | DSP48E1 | 0 | 12 | +12 (5%) | 240 |
 | Block RAM | 0 | 0 | +0 | 135 |
 
-> El banco de 8 registros vectoriales de 128 bits reutiliza la LUTRAM base del SoC
-> (delta = 0). El overhead de LUT as Logic supera la hipotesis de <5,000 LUT por la
-> inclusion de vmul.vv (DSP48E1 + logica de interfaz) y el estado S_RESET de la FSM.
+**Utilizacion total del SoC completo: 26.62% de los Slice LUTs (73.38% disponible).**
+
+> El banco de 8 registros vectoriales de 128 bits se implementa en **flip-flops**, no en
+> LUTRAM — confirmado por delta de Flip-Flops = +1,519 y delta de LUT as Memory = 0. Los
+> 8,237 LUT as Memory corresponden a la **RAM distribuida de la memoria principal del SoC**
+> (64 KiB), presente tanto en la version base como en la version con VPU, no al banco
+> vectorial. El overhead de LUT as Logic supera la hipotesis original de <5,000 LUT por
+> la inclusion de `vmul.vv` (interfaz a DSP48E1) y el estado `S_RESET` de la FSM del
+> banco vectorial. La hipotesis de area no se cumplio, pero el objetivo de
+> caracterizacion de area si se completo.
 
 ---
 
@@ -199,15 +241,17 @@ a S_IDLE producen cero porque `pcpi_valid` ya bajo.
 **HT-OE2c — Estado S_WAIT entre instrucciones PCPI consecutivas**
 Sin ciclos escalares entre dos instrucciones PCPI, la segunda puede capturar
 el banco vectorial antes de que la primera complete su escritura.
-Solucion: `S_IDLE → S_EXEC → S_DONE → S_WAIT → S_IDLE`.
+Solucion: `S_IDLE -> S_EXEC -> S_DONE -> S_WAIT -> S_IDLE`.
 
 **HT-OE3a — lsu_mem_valid fuera de defaults del always block**
 `lsu_mem_valid` en los defaults causa reset a 0 cada ciclo, colgando al CPU.
 Manejar explicitamente en cada estado de la FSM.
 
 **HT-OE4 — S_RESET para limpiar el banco vectorial**
-`initial` solo ejecuta al cargar el bitstream, no al presionar reset.
-Estado `S_RESET` que limpia los 8 registros en 8 ciclos antes de S_IDLE.
+`initial` solo ejecuta al cargar el bitstream, no al presionar reset (`BTNC`).
+Sin este estado, corridas sucesivas tras reset arrastran valores residuales del
+banco vectorial (se observo en hardware: dot product fallaba desde la segunda
+ejecucion). Estado `S_RESET` que limpia los 8 registros en 8 ciclos antes de S_IDLE.
 
 ### Interfaz de bus
 
@@ -244,7 +288,7 @@ Usar un solo bloque con `li`/`mv` directos y clobber `"memory"`.
 │       ├── pcpi_example.v      # Etapa B
 │       ├── pcpi_multicycle.v   # Etapa C
 │       ├── vpu_decode.v        # OE1: decodificador vsetvli/vsetvl + CSRs
-│       ├── vpu_alu.v           # OE2: VALU + banco 8x128b
+│       ├── vpu_alu.v           # OE2: VALU + banco 8x128b (flip-flops)
 │       ├── vpu_lsu.v           # OE3: Load/Store vectorial
 │       └── vpu_pcpi.v          # OE4: wrapper VPU completa
 ├── sim/
@@ -263,7 +307,7 @@ Usar un solo bloque con `li`/`mv` directos y clobber `"memory"`.
 │   │   ├── platform.h          # Mapa de memoria, rdcycle
 │   │   ├── uart.h / uart.c     # Funciones UART
 │   │   ├── bench.h / bench.c   # Infraestructura estadistica N_RUNS=10
-│   │   ├── vpu_asm.h           # Encodings .word de las 13 instrucciones
+│   │   ├── vpu_asm.h           # Encodings .word de las 15 instrucciones
 │   │   └── vpu_kernels.h       # Kernels escalares y vectoriales
 │   └── bench_apps/
 │       ├── main_dotprod.c      # Dot product N=32
@@ -391,4 +435,4 @@ riscv64-unknown-elf-gcc \
 
 ---
 
-*TFG IE-0499 — Escuela de Ingenieria Electronica, Instituto Tecnologico de Costa Rica — 2026*
+*TFG EL-5617 — Escuela de Ingenieria Electronica, Instituto Tecnologico de Costa Rica — 2026*
