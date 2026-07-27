@@ -1,33 +1,34 @@
-# RVV-lite sobre PicoRV32 via PCPI — FPGA Artix-7
+# RVV-lite on PicoRV32 via PCPI — Artix-7 FPGA
 
-**Trabajo Final de Graduacion (TFG) — EL-5617**
-Licenciatura en Ingenieria Electronica — Escuela de Ingenieria Electronica
-Instituto Tecnologico de Costa Rica, Sede San Carlos — I Semestre 2026
+**Final Graduation Project (TFG) — EL-5617**
+Bachelor's Degree in Electronic Engineering (Licenciatura en Ingenieria Electronica)
+School of Electronic Engineering, Instituto Tecnologico de Costa Rica, San Carlos Campus — 1st Semester 2026
 
-Implementacion de un subconjunto funcional de la extension vectorial RISC-V (RVV v1.0)
-como coprocesador PCPI del nucleo PicoRV32, sintetizado en la FPGA Nexys A7-100T (Artix-7 xc7a100tcsg324-1).
+Implementation of a functional subset of the RISC-V Vector Extension (RVV v1.0)
+as a PCPI coprocessor for the PicoRV32 core, synthesized on a Nexys A7-100T FPGA
+(Artix-7 xc7a100tcsg324-1).
 
-**Tutor:** M.Sc. Ernesto Rivera Alvarado
-**Lector:** M.Sc. Pablo Cesar Rodriguez Vargas
-
----
-
-## Que hace este proyecto
-
-La extension vectorial RISC-V (RVV) permite procesar multiples datos en paralelo (SIMD).
-Este proyecto implementa **RVV-lite** — un subconjunto de 15 instrucciones — directamente
-en hardware sobre una FPGA de bajo costo, conectado al procesador PicoRV32 mediante su
-interfaz de coprocesador PCPI.
-
-**Primera implementacion documentada de instrucciones RVV sobre PicoRV32 via PCPI.**
-Los coprocesadores PCPI existentes se limitan a extension M (multiplicacion), FFT y
-aceleradores de tarea especifica. La combinacion especifica PicoRV32 + PCPI + RVV v1.0 +
-Artix-7 xc7a100t no esta documentada en la literatura revisada (IEEE Xplore, ACM DL,
-Google Scholar, arXiv, repositorios latinoamericanos).
+**Advisor:** M.Sc. Ernesto Rivera Alvarado
+**Reader:** M.Sc. Pablo Cesar Rodriguez Vargas
 
 ---
 
-## Arquitectura del sistema
+## What this project does
+
+The RISC-V Vector Extension (RVV) enables processing multiple data elements in
+parallel (SIMD). This project implements **RVV-lite** — a subset of 15 instructions —
+directly in hardware on a low-cost FPGA, connected to the PicoRV32 processor through
+its PCPI coprocessor interface.
+
+**First documented implementation of RVV instructions on PicoRV32 via PCPI.**
+Existing PCPI coprocessors are limited to the M extension (multiplication), FFT, and
+task-specific accelerators. The specific combination of PicoRV32 + PCPI + RVV v1.0 +
+Artix-7 xc7a100t is not documented in the reviewed literature (IEEE Xplore, ACM DL,
+Google Scholar, arXiv, Latin American repositories).
+
+---
+
+## System architecture
 
 ```
 +--------------------------------------------------+
@@ -39,55 +40,55 @@ Google Scholar, arXiv, repositorios latinoamericanos).
 |   |  100 MHz    | PCPI|  vpu_alu     (OE2)   |  |
 |   +------+------+     |  vpu_lsu     (OE3)   |  |
 |          |            +----------+-----------+  |
-|          |                       | bus LSU       |
+|          |                       | LSU bus       |
 |   +------+------+   +----------+ |  +--------+  |
-|   | RAM distr.  |<--+ arbitro  +<+  |  UART  |  |
-|   | 64 KiB      |   | bus mem  |    |  GPIO  |  |
+|   | Distributed |<--+ memory   +<+  |  UART  |  |
+|   | RAM 64 KiB  |   | arbiter  |    |  GPIO  |  |
 |   +-------------+   +----------+    +--------+  |
 +--------------------------------------------------+
 
-Mapa de memoria:
-  0x0000_0000 - 0x0000_FFFF  RAM distribuida 64 KiB (firmware)
+Memory map:
+  0x0000_0000 - 0x0000_FFFF  Distributed RAM 64 KiB (firmware)
   0x1000_0000                GPIO LEDs
-  0x2000_0000                UART divisor baudrate
-  0x2000_0004                UART TX/RX dato
+  0x2000_0000                UART baud rate divisor
+  0x2000_0004                UART TX/RX data
 ```
 
-> **Nota:** la memoria principal se implementa como RAM distribuida (LUTRAM), no como
-> Block RAM — la sintesis confirma **Block RAM = 0** de 135 disponibles. El banco de
-> registros vectoriales (OE2) es un modulo **completamente separado**, implementado en
-> **flip-flops**, no en LUTRAM (ver seccion de sintesis).
+> **Note:** the main memory is implemented as distributed RAM (LUTRAM), not Block RAM —
+> synthesis confirms **Block RAM = 0** out of 135 available. The vector register file
+> (OE2) is a **completely separate** module, implemented in **flip-flops**, not LUTRAM
+> (see the synthesis results section).
 
 ---
 
-## Estado del proyecto
+## Project status
 
-| Etapa | Modulo | Simulacion | Hardware | Descripcion |
+| Stage | Module | Simulation | Hardware | Description |
 |-------|--------|-----------|---------|-------------|
-| A | SoC base | — | OK | PicoRV32 + RAM distribuida + UART + GPIO |
-| B | `pcpi_example.v` | 14/14 | 6/6 | Instruccion custom 1 ciclo |
-| C | `pcpi_multicycle.v` | 14/14 | 6/6 | FSM multiciclo, pcpi_wait sostenido |
-| OE1 | `vpu_decode.v` | 21/21 | 9/9 | vsetvli/vsetvl, CSRs vl/vtype |
-| OE2 | `vpu_alu.v` | 57/57 | 23/23 | VALU 9 instrucciones + movimiento + banco 8x128b |
-| OE3 | `vpu_lsu.v` | 28/28 | 20/20 | vle32/vse32, acceso a memoria |
-| OE4 | `vpu_pcpi.v` | Completo | Completo | Integracion + benchmarks estadisticos (N_RUNS=10) |
+| A | Base SoC | — | OK | PicoRV32 + distributed RAM + UART + GPIO |
+| B | `pcpi_example.v` | 14/14 | 6/6 | Custom 1-cycle instruction |
+| C | `pcpi_multicycle.v` | 14/14 | 6/6 | Multi-cycle FSM, sustained pcpi_wait |
+| OE1 | `vpu_decode.v` | 21/21 | 9/9 | vsetvli/vsetvl, vl/vtype CSRs |
+| OE2 | `vpu_alu.v` | 57/57 | 23/23 | 9 VALU instructions + move + 8x128b register file |
+| OE3 | `vpu_lsu.v` | 28/28 | 20/20 | vle32/vse32, memory access |
+| OE4 | `vpu_pcpi.v` | Complete | Complete | Full integration + statistical benchmarks (N_RUNS=10) |
 
-Total: 106 pruebas de simulacion + 52 pruebas de hardware, todas superadas.
+Total: 106 simulation tests + 52 hardware tests, all passing.
 
 ---
 
-## Instrucciones implementadas (15 total)
+## Implemented instructions (15 total)
 
-### OE1 — Configuracion vectorial (2)
+### OE1 — Vector configuration (2)
 
-| Instruccion | Operacion |
+| Instruction | Operation |
 |-------------|-----------|
-| `vsetvli rd, rs1, vtypei` | Configura vl = min(rs1, VLMAX), vtype segun vtypei |
-| `vsetvl  rd, rs1, rs2`    | Configura vl = min(rs1, VLMAX), vtype = rs2 |
+| `vsetvli rd, rs1, vtypei` | Sets vl = min(rs1, VLMAX), vtype from vtypei |
+| `vsetvl  rd, rs1, rs2`    | Sets vl = min(rs1, VLMAX), vtype = rs2 |
 
-### OE2 — VALU vectorial (9 aritmetico-logicas + 2 movimiento; EEW=32, VLEN=128, VLMAX=4)
+### OE2 — Vector ALU (9 arithmetic/logic + 2 move; EEW=32, VLEN=128, VLMAX=4)
 
-| Instruccion | Tipo | Operacion |
+| Instruction | Type | Operation |
 |-------------|------|-----------|
 | `vadd.vv` | OPIVV | `vd[i] = vs2[i] + vs1[i]` |
 | `vsub.vv` | OPIVV | `vd[i] = vs2[i] - vs1[i]` |
@@ -96,55 +97,55 @@ Total: 106 pruebas de simulacion + 52 pruebas de hardware, todas superadas.
 | `vxor.vv` | OPIVV | `vd[i] = vs2[i] ^ vs1[i]` |
 | `vsll.vv` | OPIVV | `vd[i] = vs2[i] << vs1[i][4:0]` |
 | `vsrl.vv` | OPIVV | `vd[i] = vs2[i] >> vs1[i][4:0]` |
-| `vmul.vv` | OPMVV | `vd[i] = vs2[i] * vs1[i]` (32b bajo, 3 DSP48E1 por elemento) |
+| `vmul.vv` | OPMVV | `vd[i] = vs2[i] * vs1[i]` (low 32b, 3 DSP48E1 per element) |
 | `vredsum.vs` | OPMVV | `vd[0] = vs1[0] + sum(vs2[i], i<vl)` |
-| `vmv.v.x` | Movimiento | `vd[i] = rs1` (broadcast escalar-a-vector) |
-| `vmv.x.s` | Movimiento | `rd = vs2[0]` (extraccion vector-a-escalar) |
+| `vmv.v.x` | Move | `vd[i] = rs1` (scalar-to-vector broadcast) |
+| `vmv.x.s` | Move | `rd = vs2[0]` (vector-to-scalar extraction) |
 
-### OE3 — Acceso a memoria vectorial (2)
+### OE3 — Vector memory access (2)
 
-| Instruccion | Operacion |
+| Instruction | Operation |
 |-------------|-----------|
-| `vle32.v vd, (rs1)` | Carga vl palabras de 32b desde mem[rs1+i*4] a vreg[vd] |
-| `vse32.v vs3, (rs1)` | Escribe vl palabras de 32b desde vreg[vs3] a mem[rs1+i*4] |
+| `vle32.v vd, (rs1)` | Loads vl 32-bit words from mem[rs1+i*4] into vreg[vd] |
+| `vse32.v vs3, (rs1)` | Stores vl 32-bit words from vreg[vs3] into mem[rs1+i*4] |
 
-> **14 de las 15 instrucciones son bit-exactas con la codificacion RVV v1.0.** Una
-> excepcion documentada (`vmv.v.x`, campo funct3) se etiqueto internamente como OPIVX
-> con una variacion menor; no se corrigio para no perturbar el cierre de timing ya
-> verificado (WNS = +0.094 ns).
+> **14 of the 15 instructions are bit-exact with the RVV v1.0 encoding.** One
+> documented exception (`vmv.v.x`, funct3 field) was internally labeled as OPIVX
+> with a minor variation; it was not corrected in order to avoid disturbing the
+> already-verified timing closure (WNS = +0.094 ns).
 
 ---
 
-## Resultados de benchmarks — Hardware real a 100 MHz
+## Benchmark results — Real hardware at 100 MHz
 
-Metodologia: `N_RUNS=10` corridas consecutivas por benchmark, se reportan media/min/max/rango.
-**Determinismo verificado:** rango = 0 en todas las mediciones intra-corrida
-e inter-reset (via `BTNC`). El sistema bare-metal sobre FPGA es perfectamente reproducible.
+Methodology: `N_RUNS=10` consecutive runs per benchmark, reporting mean/min/max/range.
+**Determinism verified:** range = 0 in all intra-run and inter-reset measurements
+(via `BTNC`). The bare-metal FPGA system is perfectly reproducible.
 
-### Benchmarks principales (hipotesis del TFG: >=30% mejora)
+### Main benchmarks (TFG hypothesis: >=30% improvement)
 
-| Kernel | N | Ciclos esc. | Ciclos vec. | Mejora | Hipotesis |
-|--------|---|------------|------------|--------|-----------|
-| Dot product | 32 | 11,376 | 815 | **92% (13.96x)** | CUMPLIDA |
-| FIR (N=32 coefs) | 32 | 189,354 | 71,144 | **62% (2.66x)** | CUMPLIDA |
+| Kernel | N | Scalar cycles | Vector cycles | Improvement | Hypothesis |
+|--------|---|---------------|----------------|-------------|------------|
+| Dot product | 32 | 11,376 | 815 | **92% (13.96x)** | MET |
+| FIR (N=32 coeffs) | 32 | 189,354 | 71,144 | **62% (2.66x)** | MET |
 
-> **Nota sobre 13.96x vs 10.3x:** el barrido de escalabilidad (Fase B, N=32..256) mide
-> 10.3x en N=32 con un conjunto de operandos distinto al del benchmark insignia. El
-> vector es constante en ambos casos (815 ciclos); el escalar varia porque `__mulsi3`
-> (libgcc) itera segun la magnitud de los operandos, no solo segun N. Ambos numeros son
-> correctos para su respectivo conjunto de datos — documentado en detalle en el informe.
+> **Note on 13.96x vs 10.3x:** the scalability sweep (Phase B, N=32..256) measures
+> 10.3x at N=32 using a different operand set than the flagship benchmark. The vector
+> result is constant in both cases (815 cycles); the scalar result varies because
+> `__mulsi3` (libgcc) iterates according to operand magnitude, not only N. Both figures
+> are correct for their respective dataset — documented in detail in the final report.
 
-### Benchmarks AXPY — instrucciones combinadas
+### AXPY benchmarks — combined instructions
 
-| Kernel | N | Ciclos esc. | Ciclos vec. | Mejora |
-|--------|---|------------|------------|--------|
+| Kernel | N | Scalar cycles | Vector cycles | Improvement |
+|--------|---|---------------|----------------|-------------|
 | AXPY: `z=a*x+y` | 128 | 8,088 | 4,456 | **44%** |
 | AXPY-ext: `z=a*x+b*y+c*w+d*v` | 64 | 9,240 | 4,196 | **54%** |
 
-### Microbenchmarks por instruccion VALU (N=128)
+### Per-instruction VALU microbenchmarks (N=128)
 
-| Instruccion | Ciclos esc. | Ciclos vec. | Mejora |
-|-------------|------------|------------|--------|
+| Instruction | Scalar cycles | Vector cycles | Improvement |
+|-------------|----------------|----------------|-------------|
 | `vadd.vv` | 4,613 | 3,865 | 16% |
 | `vsub.vv` | 4,613 | 3,865 | 16% |
 | `vand.vv` | 5,677 | 3,883 | 31% |
@@ -153,144 +154,146 @@ e inter-reset (via `BTNC`). El sistema bare-metal sobre FPGA es perfectamente re
 | `vsll.vv` | 5,253 | 3,865 | 26% |
 | `vsrl.vv` | 5,253 | 3,865 | 26% |
 
-### Benchmark de memoria — vse32 (N=256)
+### Memory benchmark — vse32 (N=256)
 
-| Implementacion | Ciclos | Throughput |
-|----------------|--------|-----------|
-| Escalar (sw store) | 4,613 | 22 MB/s |
-| Vectorial (vse32)  | 4,621 | 22 MB/s |
+| Implementation | Cycles | Throughput |
+|-----------------|--------|-----------|
+| Scalar (sw store) | 4,613 | 22 MB/s |
+| Vector (vse32)     | 4,621 | 22 MB/s |
 
-**Mejora: -0.2%** — la version vectorial es 8 ciclos mas lenta. Resultado esperado y
-reportado honestamente: el throughput de store esta limitado por el ancho de banda de
-la memoria (1 palabra/ciclo), no por computo, asi que la VPU no aporta ventaja aqui.
+**Improvement: -0.2%** — the vector version is 8 cycles slower. This is the expected
+result, reported honestly: store throughput is limited by memory bandwidth (1 word/cycle),
+not by compute, so the VPU provides no advantage here.
 
-### Patron de mejora por tipo de operacion
+### Improvement pattern by operation type
 
 ```
--0.2% -> vse32       (bandwidth-limited: la memoria es el cuello de botella)
- 16%  -> vadd/vsub   (memory-bound: mismo numero de accesos en ambas impl.)
- 26%  -> vsll/vsrl   (escalar requiere andi adicional para mascara de shift)
- 31%  -> vand/vor/vxor (escalar requiere lui para constantes de 32 bits)
- 44%  -> AXPY (1 mul/elem via __mulsi3 eliminada por vmul.vv)
- 54%  -> AXPY-ext (4 muls/elem, 17 instrucciones PCPI por 4 elementos)
- 62%  -> FIR  (compute-intensive, procesamiento de senales)
- 92%  -> Dot product (maximo observado, todas las multiplicaciones en DSP48E1)
+-0.2% -> vse32       (bandwidth-limited: memory is the bottleneck)
+ 16%  -> vadd/vsub   (memory-bound: same number of accesses in both implementations)
+ 26%  -> vsll/vsrl   (scalar requires an extra andi for the shift mask)
+ 31%  -> vand/vor/vxor (scalar requires lui for 32-bit constants)
+ 44%  -> AXPY (1 mul/elem via __mulsi3 eliminated by vmul.vv)
+ 54%  -> AXPY-ext (4 muls/elem, 17 PCPI instructions per 4 elements)
+ 62%  -> FIR  (compute-intensive, signal processing)
+ 92%  -> Dot product (maximum observed, all multiplications on DSP48E1)
 ```
 
-**Regla general:** la mejora es proporcional a la fraccion de tiempo escalar consumida
-en multiplicacion por software (`__mulsi3`, ya que `ENABLE_MUL=0`). La VPU conviene
-cuando el cuello de botella es el computo, no el acceso a memoria.
+**General rule:** the improvement is proportional to the fraction of scalar execution
+time spent on software multiplication (`__mulsi3`, since `ENABLE_MUL=0`). The VPU is
+worthwhile when the bottleneck is compute, not memory access.
 
 ---
 
-## Resultados de sintesis — Vivado 2025.2
+## Synthesis results — Vivado 2025.2
 
-**Estrategia:** `Performance_ExplorePostRoutePhysOpt`
-**Timing:** WNS = **+0.094 ns** a 100 MHz (periodo 10.000 ns, camino critico 9.906 ns).
-Sin violaciones de timing post-ruteo, sin modificaciones al RTL.
-Camino critico candidato: `vmul.vv` -> DSP48E1 -> banco de registros vectoriales
+**Strategy:** `Performance_ExplorePostRoutePhysOpt`
+**Timing:** WNS = **+0.094 ns** at 100 MHz (period 10.000 ns, critical path 9.906 ns).
+No post-route timing violations, no RTL modifications.
+Candidate critical path: `vmul.vv` -> DSP48E1 -> vector register file
 (`DSP48_X0Y5 -> DSP48_X0Y6 -> LUT -> CARRY4 -> FDRE(vreg_reg[7][93])`,
-delay 9.768 ns: 76.9% logica / 23.1% ruteo).
+delay 9.768 ns: 76.9% logic / 23.1% routing).
 
-| Recurso | SoC base | SoC + VPU | Delta VPU | Disponible |
-|---------|---------|-----------|-----------|-----------|
+| Resource | Base SoC | SoC + VPU | VPU Delta | Available |
+|----------|---------|-----------|-----------|-----------|
 | LUT as Logic | 1,831 | 8,640 | **+6,809 (10.74%)** | 63,400 |
 | LUT as Memory | 8,237 | 8,237 | +0 | 19,000 |
 | Flip Flops | 828 | 2,347 | +1,519 (1.2%) | 126,800 |
 | DSP48E1 | 0 | 12 | +12 (5%) | 240 |
 | Block RAM | 0 | 0 | +0 | 135 |
 
-**Utilizacion total del SoC completo: 26.62% de los Slice LUTs (73.38% disponible).**
+**Total SoC utilization: 26.62% of Slice LUTs (73.38% available).**
 
-> El banco de 8 registros vectoriales de 128 bits se implementa en **flip-flops**, no en
-> LUTRAM — confirmado por delta de Flip-Flops = +1,519 y delta de LUT as Memory = 0. Los
-> 8,237 LUT as Memory corresponden a la **RAM distribuida de la memoria principal del SoC**
-> (64 KiB), presente tanto en la version base como en la version con VPU, no al banco
-> vectorial. El overhead de LUT as Logic supera la hipotesis original de <5,000 LUT por
-> la inclusion de `vmul.vv` (interfaz a DSP48E1) y el estado `S_RESET` de la FSM del
-> banco vectorial. La hipotesis de area no se cumplio, pero el objetivo de
-> caracterizacion de area si se completo.
+> The 8-register, 128-bit vector register file is implemented in **flip-flops**, not
+> LUTRAM — confirmed by the Flip-Flop delta of +1,519 and the LUT-as-Memory delta of 0.
+> The 8,237 LUT-as-Memory entries correspond to the **distributed RAM of the SoC's main
+> memory** (64 KiB), present both in the base and VPU-enabled versions, not to the
+> vector register file. The LUT-as-Logic overhead exceeds the original <5,000 LUT
+> hypothesis due to the inclusion of `vmul.vv` (DSP48E1 interface logic) and the
+> `S_RESET` state of the vector register file's FSM. The area hypothesis was not met,
+> but the area-characterization objective was completed.
 
 ---
 
-## Hallazgos tecnicos documentados
+## Documented technical findings
 
-9 hallazgos originales identificados durante el desarrollo, que constituyen
-aporte directo a la literatura de diseno de coprocesadores PCPI.
+9 original findings identified during development, constituting a direct contribution
+to the literature on PCPI coprocessor design.
 
-### Protocolo PCPI
+### PCPI protocol
 
-**HT-B — pcpi_wait debe ser combinacional**
-El PicoRV32 tiene timeout de 16 ciclos. Si `pcpi_wait` se registra, el contador
-comienza antes de que el coprocesador lo aserte.
+**HT-B — pcpi_wait must be combinational**
+PicoRV32 has a 16-cycle timeout for PCPI instructions. If `pcpi_wait` is registered,
+there is one cycle where `pcpi_valid=1` and `pcpi_wait=0`, starting the timeout counter.
 ```verilog
-// Correcto:
+// Correct:
 assign pcpi_wait = is_my_insn || (state != S_IDLE);
-// Incorrecto (genera timeout):
+// Incorrect (causes timeout):
 always @(posedge clk) pcpi_wait <= is_my_insn || ...;
 ```
 
-**HT-C — Capturar operandos en S_IDLE antes de que pcpi_valid baje**
-El CPU baja `pcpi_valid` en cuanto el coprocesador aserta `pcpi_wait`. Capturar
-todos los operandos en S_IDLE antes de transicionar a S_EXEC.
+**HT-C — Capture operands in S_IDLE before pcpi_valid drops**
+In a multi-cycle PCPI FSM, the CPU drops `pcpi_valid` as soon as the coprocessor
+asserts `pcpi_wait`. All instruction fields and register values must be captured
+in S_IDLE before transitioning to S_EXEC.
 
-**HT-OE2a — Calcular con operandos registrados, no con senales de pcpi_valid**
-Calculos que dependen de senales derivadas de `pcpi_valid` en ciclos posteriores
-a S_IDLE producen cero porque `pcpi_valid` ya bajo.
+**HT-OE2a — Compute using registered operands, not pcpi_valid-derived signals**
+Computations that depend on signals derived from `pcpi_valid` in cycles after S_IDLE
+always produce zero, since `pcpi_valid` has already dropped.
 
-**HT-OE2c — Estado S_WAIT entre instrucciones PCPI consecutivas**
-Sin ciclos escalares entre dos instrucciones PCPI, la segunda puede capturar
-el banco vectorial antes de que la primera complete su escritura.
-Solucion: `S_IDLE -> S_EXEC -> S_DONE -> S_WAIT -> S_IDLE`.
+**HT-OE2c — S_WAIT state between consecutive PCPI instructions**
+Without scalar cycles between two PCPI instructions, the second one can capture the
+vector register file before the first has finished writing to it.
+Solution: `S_IDLE -> S_EXEC -> S_DONE -> S_WAIT -> S_IDLE`.
 
-**HT-OE3a — lsu_mem_valid fuera de defaults del always block**
-`lsu_mem_valid` en los defaults causa reset a 0 cada ciclo, colgando al CPU.
-Manejar explicitamente en cada estado de la FSM.
+**HT-OE3a — lsu_mem_valid outside the always block's defaults**
+Placing `lsu_mem_valid` in the defaults causes it to reset to 0 every cycle, hanging
+the CPU. Handle it explicitly in each FSM state.
 
-**HT-OE4 — S_RESET para limpiar el banco vectorial**
-`initial` solo ejecuta al cargar el bitstream, no al presionar reset (`BTNC`).
-Sin este estado, corridas sucesivas tras reset arrastran valores residuales del
-banco vectorial (se observo en hardware: dot product fallaba desde la segunda
-ejecucion). Estado `S_RESET` que limpia los 8 registros en 8 ciclos antes de S_IDLE.
+**HT-OE4 — S_RESET to clear the vector register file**
+`initial` blocks only execute at bitstream load time, not on a button reset (`BTNC`).
+Without this state, consecutive runs after a reset carry over stale values in the
+vector register file (observed in hardware: the dot product test would fail starting
+from the second run). An `S_RESET` state clears the 8 registers over 8 cycles before
+entering S_IDLE.
 
-### Interfaz de bus
+### Bus interface
 
-**HT-OE3b — lsu_valid_prev evita ready prematuro en elemento 0**
-Cuando `lsu_mem_valid` sube, el CPU puede tener `mem_valid=1` pendiente (prefetch).
-El ready resultante contamina el primer elemento vectorial.
+**HT-OE3b — lsu_valid_prev avoids a premature ready on element 0**
+When `lsu_mem_valid` rises, the CPU may have a pending `mem_valid=1` (prefetch). The
+resulting ready signal contaminates the first vector element.
 ```verilog
 reg lsu_valid_prev;
 always @(posedge clk) lsu_valid_prev <= lsu_mem_valid;
 assign lsu_mem_ready = lsu_valid_prev ? ready_r : 1'b0;
 ```
 
-**HT-OE3c — Multi-load con registros base distintos en bloque asm unificado**
-Dos `vle32` en bloques `asm` separados permiten que GCC reutilice el registro base.
-Usar `a0` para el primer vector y `a1` para el segundo en un bloque unificado.
+**HT-OE3c — Multi-load requires distinct base registers in a unified asm block**
+Two `vle32` instructions in separate `asm` blocks allow GCC to reuse the base register.
+Use `a0` for the first vector and `a1` for the second in a single unified block.
 
 ### Firmware
 
-**HT-OE2b — Instrucciones .word en bloques asm extendidos unificados**
-Bloques `asm volatile` separados permiten que GCC corrompa registros entre instrucciones.
-Usar un solo bloque con `li`/`mv` directos y clobber `"memory"`.
+**HT-OE2b — .word instructions in unified extended asm blocks**
+Separate `asm volatile` blocks allow GCC to corrupt registers between instructions.
+Use a single block with direct `li`/`mv` and a `"memory"` clobber.
 
 ---
 
-## Estructura del repositorio
+## Repository structure
 
 ```
 .
 ├── rtl/
 │   ├── core/
-│   │   ├── picorv32.v          # Nucleo RISC-V (Claire Wolf / YosysHQ)
+│   │   ├── picorv32.v          # RISC-V core (Claire Wolf / YosysHQ)
 │   │   └── simpleuart.v        # UART
 │   └── vpu/
-│       ├── pcpi_example.v      # Etapa B
-│       ├── pcpi_multicycle.v   # Etapa C
-│       ├── vpu_decode.v        # OE1: decodificador vsetvli/vsetvl + CSRs
-│       ├── vpu_alu.v           # OE2: VALU + banco 8x128b (flip-flops)
-│       ├── vpu_lsu.v           # OE3: Load/Store vectorial
-│       └── vpu_pcpi.v          # OE4: wrapper VPU completa
+│       ├── pcpi_example.v      # Stage B
+│       ├── pcpi_multicycle.v   # Stage C
+│       ├── vpu_decode.v        # OE1: vsetvli/vsetvl decoder + CSRs
+│       ├── vpu_alu.v           # OE2: VALU + 8x128b register file (flip-flops)
+│       ├── vpu_lsu.v           # OE3: vector load/store
+│       └── vpu_pcpi.v          # OE4: full VPU wrapper
 ├── sim/
 │   ├── Makefile
 │   ├── tb_pcpi_example.cpp
@@ -304,22 +307,22 @@ Usar un solo bloque con `li`/`mv` directos y clobber `"memory"`.
 │   ├── link.ld
 │   ├── bin2hex32.py
 │   ├── shared/
-│   │   ├── platform.h          # Mapa de memoria, rdcycle
-│   │   ├── uart.h / uart.c     # Funciones UART
-│   │   ├── bench.h / bench.c   # Infraestructura estadistica N_RUNS=10
-│   │   ├── vpu_asm.h           # Encodings .word de las 15 instrucciones
-│   │   └── vpu_kernels.h       # Kernels escalares y vectoriales
+│   │   ├── platform.h          # Memory map, rdcycle
+│   │   ├── uart.h / uart.c     # UART functions
+│   │   ├── bench.h / bench.c   # Statistical infrastructure, N_RUNS=10
+│   │   ├── vpu_asm.h           # .word encodings for the 15 instructions
+│   │   └── vpu_kernels.h       # Scalar and vector kernels
 │   └── bench_apps/
 │       ├── main_dotprod.c      # Dot product N=32
-│       ├── main_fir.c          # Filtro FIR N=32
+│       ├── main_fir.c          # FIR filter N=32
 │       ├── main_axpy.c         # AXPY z=a*x+y N=128
-│       ├── main_axpy_ext.c     # AXPY extendido z=ax+by+cw+dv N=64
-│       ├── main_vadd.c         # Microbenchmark vadd.vv
-│       ├── main_vsub.c         # Microbenchmark vsub.vv
-│       ├── main_vlogic.c       # Microbenchmarks vand/vor/vxor
-│       ├── main_vshift.c       # Microbenchmarks vsll/vsrl
-│       └── main_vse32.c        # Throughput memoria vse32
-├── top.v                       # Top-level SoC + arbitro de bus
+│       ├── main_axpy_ext.c     # Extended AXPY z=ax+by+cw+dv N=64
+│       ├── main_vadd.c         # vadd.vv microbenchmark
+│       ├── main_vsub.c         # vsub.vv microbenchmark
+│       ├── main_vlogic.c       # vand/vor/vxor microbenchmarks
+│       ├── main_vshift.c       # vsll/vsrl microbenchmarks
+│       └── main_vse32.c        # vse32 memory throughput
+├── top.v                       # Top-level SoC + bus arbiter
 ├── constraints/
 │   └── nexys_a7.xdc
 └── docs/
@@ -328,58 +331,58 @@ Usar un solo bloque con `li`/`mv` directos y clobber `"memory"`.
 
 ---
 
-## Como correr las simulaciones
+## Running the simulations
 
-### Requisitos
+### Requirements
 
 ```bash
 sudo apt install verilator g++ make
 sudo apt install gcc-riscv64-unknown-elf
 ```
 
-### Simulacion por modulo
+### Per-module simulation
 
 ```bash
 cd sim
-make all        # todos los testbenches
-make oe1        # solo vpu_decode   (21 tests)
-make oe2        # solo vpu_alu      (57 tests)
-make oe3        # solo vpu_lsu      (28 tests)
+make all        # all testbenches
+make oe1        # vpu_decode only   (21 tests)
+make oe2        # vpu_alu only      (57 tests)
+make oe3        # vpu_lsu only      (28 tests)
 ```
 
 ---
 
-## Como compilar y desplegar firmware
+## Building and deploying firmware
 
 ```bash
 cd fw
-make all                      # compila los 9 benchmarks
-make list                     # ver benchmarks disponibles
-make dotprod                  # compilar uno especifico
-make BENCH=dotprod deploy     # compilar y copiar a Vivado
-make clean                    # limpiar build/
+make all                      # builds all 9 benchmarks
+make list                     # list available benchmarks
+make dotprod                  # build a specific one
+make BENCH=dotprod deploy     # build and copy to Vivado
+make clean                    # clean build/
 ```
 
-La variable `VIVADO_SRC` apunta al directorio `sources_1/new` del proyecto Vivado:
+The `VIVADO_SRC` variable points to the Vivado project's `sources_1/new` directory:
 ```bash
-make BENCH=fir VIVADO_SRC=/ruta/a/tu/proyecto/sources_1/new deploy
+make BENCH=fir VIVADO_SRC=/path/to/your/vivado/sources_1/new deploy
 ```
 
 ---
 
-## Como correr en hardware
+## Running on hardware
 
-1. Abrir proyecto en Vivado (Nexys A7-100T, `xc7a100tcsg324-1`)
-2. Agregar sources: `rtl/core/*.v`, `rtl/vpu/*.v`, `top.v`
-3. Agregar constraints: `constraints/nexys_a7.xdc`
-4. Compilar firmware: `cd fw && make BENCH=dotprod deploy`
-5. **Cambio de firmware solamente:**
+1. Open the project in Vivado (Nexys A7-100T, `xc7a100tcsg324-1`)
+2. Add sources: `rtl/core/*.v`, `rtl/vpu/*.v`, `top.v`
+3. Add constraints: `constraints/nexys_a7.xdc`
+4. Build firmware: `cd fw && make BENCH=dotprod deploy`
+5. **Firmware-only change:**
    ```tcl
    reset_run synth_1
    launch_runs impl_1 -to_step write_bitstream -jobs 6
    wait_on_run impl_1
    ```
-6. **Cambio de RTL:**
+6. **RTL change:**
    ```tcl
    reset_run synth_1
    reset_run impl_1
@@ -389,21 +392,21 @@ make BENCH=fir VIVADO_SRC=/ruta/a/tu/proyecto/sources_1/new deploy
    wait_on_run impl_1
    ```
 7. Program Device
-8. Terminal serie: 115200 baud, 8N1
-9. Resultado esperado: LEDs[7:0] = `0xFF`, benchmarks por UART
+8. Serial terminal: 115200 baud, 8N1
+9. Expected result: LEDs[7:0] = `0xFF`, benchmarks over UART
 
 ---
 
-## Configuracion del CPU
+## CPU configuration
 
 ```verilog
 picorv32 #(
-    .ENABLE_PCPI         (1),   // interfaz de coprocesador
-    .ENABLE_MUL          (0),   // multiplicacion via PCPI (vmul.vv)
-    .ENABLE_DIV          (0),   // division software via -lgcc
-    .ENABLE_REGS_DUALPORT(1),   // rs1+rs2 en mismo ciclo (requerido PCPI)
+    .ENABLE_PCPI         (1),   // enables coprocessor interface
+    .ENABLE_MUL          (0),   // multiplication via PCPI (vmul.vv)
+    .ENABLE_DIV          (0),   // software division via -lgcc
+    .ENABLE_REGS_DUALPORT(1),   // rs1+rs2 in the same cycle (required by PCPI)
     .COMPRESSED_ISA      (0),   // rv32i
-    .ENABLE_COUNTERS     (1),   // rdcycle para benchmarks
+    .ENABLE_COUNTERS     (1),   // rdcycle available for benchmarking
     .PROGADDR_RESET      (32'h0000_0000),
     .STACKADDR           (32'h0000_FFFC)
 )
@@ -420,12 +423,13 @@ riscv64-unknown-elf-gcc \
     -o firmware.elf
 ```
 
-> **Nota:** `-march=rv32i` es obligatorio con `ENABLE_MUL=0`. Con `-march=rv32im`
-> GCC genera instruccion `mul` que causa trap al no estar habilitada en el CPU.
+> **Note:** `-march=rv32i` is mandatory with `ENABLE_MUL=0`. With `-march=rv32im`
+> GCC generates a native `mul` instruction, which traps since it is not enabled
+> on the CPU.
 
 ---
 
-## Referencias
+## References
 
 - RISC-V "V" Vector Extension Specification v1.0 — RISC-V International, 2021
 - PicoRV32 — Claire Wolf, YosysHQ (https://github.com/YosysHQ/picorv32)
@@ -435,4 +439,4 @@ riscv64-unknown-elf-gcc \
 
 ---
 
-*TFG EL-5617 — Escuela de Ingenieria Electronica, Instituto Tecnologico de Costa Rica — 2026*
+*TFG EL-5617 — School of Electronic Engineering, Instituto Tecnologico de Costa Rica — 2026*
